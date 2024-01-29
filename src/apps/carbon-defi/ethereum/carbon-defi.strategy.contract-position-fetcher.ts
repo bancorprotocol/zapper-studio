@@ -17,6 +17,7 @@ import {
   GetDisplayPropsParams,
   GetDataPropsParams,
 } from '~position/template/contract-position.template.types';
+import { Network } from '~types';
 
 import { CarbonDefiViemContractFactory } from '../contracts';
 import { CarbonController } from '../contracts/viem/CarbonController';
@@ -54,7 +55,6 @@ export class EthereumCarbonDefiStrategyContractPositionFetcher extends ContractP
   StrategyProps,
   StrategyDefinition
 > {
-  groupId = 'strategy';
   groupLabel = 'Carbon Defi';
 
   constructor(
@@ -65,7 +65,10 @@ export class EthereumCarbonDefiStrategyContractPositionFetcher extends ContractP
   }
 
   getContract() {
-    return this.factory.carbonController();
+    return this.factory.carbonController({
+      address: '0xc537e898cd774e2dcba3b14ea6f34c93d5ea45e1',
+      network: Network.ETHEREUM_MAINNET,
+    });
   }
 
   override async getDataProps(params: GetDataPropsParams<CarbonController, StrategyProps, StrategyDefinition>) {
