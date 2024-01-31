@@ -6,17 +6,16 @@ import { APP_TOOLKIT, IAppToolkit } from '~app-toolkit/app-toolkit.interface';
 import { ETH_ADDR_ALIAS, ZERO_ADDRESS } from '~app-toolkit/constants/address';
 import { PositionTemplate } from '~app-toolkit/decorators/position-template.decorator';
 import { drillBalance } from '~app-toolkit/helpers/drill-balance.helper';
-import { ContractPositionBalance } from '~position/position-balance.interface';
-import { ContractPosition, MetaType } from '~position/position.interface';
-import { ContractPositionTemplatePositionFetcher } from '~position/template/contract-position.template.position-fetcher';
+import { ContractPositionBalance, RawContractPositionBalance } from '~position/position-balance.interface';
+import { MetaType } from '~position/position.interface';
 import {
   DefaultContractPositionDefinition,
   UnderlyingTokenDefinition,
-  GetTokenBalancesParams,
   GetTokenDefinitionsParams,
   GetDisplayPropsParams,
   GetDataPropsParams,
 } from '~position/template/contract-position.template.types';
+import { CustomContractPositionTemplatePositionFetcher } from '~position/template/custom-contract-position.template.position-fetcher';
 import { Network } from '~types';
 
 import { CarbonDefiViemContractFactory } from '../contracts';
@@ -50,7 +49,7 @@ function isActiveStrategy(strategy: Strategy) {
 }
 
 @PositionTemplate()
-export class EthereumCarbonDefiStrategyContractPositionFetcher extends ContractPositionTemplatePositionFetcher<
+export class EthereumCarbonDefiStrategyContractPositionFetcher extends CustomContractPositionTemplatePositionFetcher<
   CarbonController,
   StrategyProps,
   StrategyDefinition
@@ -73,42 +72,6 @@ export class EthereumCarbonDefiStrategyContractPositionFetcher extends ContractP
 
   override async getDataProps(params: GetDataPropsParams<CarbonController, StrategyProps, StrategyDefinition>) {
     return { strategy: params.definition.strategy };
-  }
-
-  override async filterPositionsForAddress(
-    address: string,
-    positions: ContractPosition<StrategyProps>[],
-  ): Promise<ContractPosition<StrategyProps>[]> {
-    return positions.filter(position => {
-      const owner = position.dataProps.strategy.owner;
-      return owner.toLowerCase() === address.toLowerCase();
-    });
-  }
-
-  // Override the getBalance query to keep token with budget set to 0
-  override async getBalances(address: string): Promise<ContractPositionBalance<StrategyProps>[]> {
-    const multicall = this.appToolkit.getViemMulticall(this.network);
-    if (address === ZERO_ADDRESS) return [];
-
-    const contractPositions = await this.getPositionsForBalances();
-    const filteredPositions = await this.filterPositionsForAddress(address, contractPositions);
-
-    const balances = await Promise.all(
-      filteredPositions.map(async contractPosition => {
-        const contract = multicall.wrap(this.getContract());
-        const balancesRaw = await this.getTokenBalancesPerPosition({ address, contract, contractPosition, multicall });
-        const tokens = contractPosition.tokens.map((cp, idx) =>
-          drillBalance(cp, balancesRaw[idx]?.toString() ?? '0', { isDebt: cp.metaType === MetaType.BORROWED }),
-        );
-        return {
-          ...contractPosition,
-          balanceUSD: sumBy(tokens, t => t.balanceUSD),
-          tokens,
-        };
-      }),
-    );
-
-    return balances;
   }
 
   async getLabel(params: GetDisplayPropsParams<CarbonController>): Promise<string> {
@@ -135,11 +98,54 @@ export class EthereumCarbonDefiStrategyContractPositionFetcher extends ContractP
     }));
   }
 
-  async getTokenBalancesPerPosition(
-    params: GetTokenBalancesParams<CarbonController, StrategyProps>,
-  ): Promise<BigNumberish[]> {
-    const strategy = params.contractPosition.dataProps.strategy;
-    const [buy, sell] = strategy.orders;
-    return [buy.y, sell.y];
+  async getBalances(address: string): Promise<ContractPositionBalance<StrategyProps>[]> {
+    if (address === ZERO_ADDRESS) return [];
+
+    const positions = await this.getPositions();
+    const balances: ContractPositionBalance<StrategyProps>[] = [];
+    for (const position of positions) {
+      const { owner, orders } = position.dataProps.strategy;
+      if (owner.toLowerCase() !== address.toLowerCase()) continue;
+      const tokens = [
+        drillBalance(position.tokens[0], orders[0].y.toString() ?? '0'),
+        drillBalance(position.tokens[1], orders[1].y.toString() ?? '0'),
+      ];
+      balances.push({
+        ...position,
+        balanceUSD: sumBy(tokens, t => t.balanceUSD),
+        tokens,
+      });
+    }
+    return balances;
+  }
+
+  async getRawBalances(address: string): Promise<RawContractPositionBalance[]> {
+    if (address === ZERO_ADDRESS) return [];
+
+    const positions = await this.getPositions();
+    const balances: RawContractPositionBalance[] = [];
+    for (const position of positions) {
+      const { owner, orders } = position.dataProps.strategy;
+      if (owner.toLowerCase() !== address.toLowerCase()) continue;
+      balances.push({
+        key: this.appToolkit.getPositionKey(position),
+        tokens: [
+          {
+            key: this.appToolkit.getPositionKey(position.tokens[0]),
+            balance: orders[0].y.toString(),
+          },
+          {
+            key: this.appToolkit.getPositionKey(position.tokens[1]),
+            balance: orders[1].y.toString(),
+          },
+        ],
+      });
+    }
+    return balances;
+  }
+
+  // Unused since CustomContractPositionTemplatePositionFetcher forces Promise output while it can be sync
+  async getTokenBalancesPerPosition(): Promise<BigNumberish[]> {
+    return [];
   }
 }
