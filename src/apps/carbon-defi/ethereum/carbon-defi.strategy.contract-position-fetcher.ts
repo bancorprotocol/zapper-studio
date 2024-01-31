@@ -7,7 +7,7 @@ import { ETH_ADDR_ALIAS, ZERO_ADDRESS } from '~app-toolkit/constants/address';
 import { PositionTemplate } from '~app-toolkit/decorators/position-template.decorator';
 import { drillBalance } from '~app-toolkit/helpers/drill-balance.helper';
 import { ContractPositionBalance, RawContractPositionBalance } from '~position/position-balance.interface';
-import { MetaType } from '~position/position.interface';
+import { ContractPosition, MetaType } from '~position/position.interface';
 import {
   DefaultContractPositionDefinition,
   UnderlyingTokenDefinition,
@@ -101,7 +101,12 @@ export class EthereumCarbonDefiStrategyContractPositionFetcher extends CustomCon
   async getBalances(address: string): Promise<ContractPositionBalance<StrategyProps>[]> {
     if (address === ZERO_ADDRESS) return [];
 
-    const positions = await this.getPositions();
+    const positions = await this.appToolkit.getAppContractPositions<StrategyDefinition>({
+      appId: this.appId,
+      network: this.network,
+      groupIds: [this.groupId],
+    });
+
     const balances: ContractPositionBalance<StrategyProps>[] = [];
     for (const position of positions) {
       const { owner, orders } = position.dataProps.strategy;
@@ -122,13 +127,18 @@ export class EthereumCarbonDefiStrategyContractPositionFetcher extends CustomCon
   async getRawBalances(address: string): Promise<RawContractPositionBalance[]> {
     if (address === ZERO_ADDRESS) return [];
 
-    const positions = await this.getPositions();
+    const positions = await this.appToolkit.getAppContractPositions<StrategyDefinition>({
+      appId: this.appId,
+      network: this.network,
+      groupIds: [this.groupId],
+    });
+
     const balances: RawContractPositionBalance[] = [];
     for (const position of positions) {
       const { owner, orders } = position.dataProps.strategy;
       if (owner.toLowerCase() !== address.toLowerCase()) continue;
       balances.push({
-        key: this.appToolkit.getPositionKey(position),
+        key: this.appToolkit.getPositionKey(position as ContractPosition<any>),
         tokens: [
           {
             key: this.appToolkit.getPositionKey(position.tokens[0]),
