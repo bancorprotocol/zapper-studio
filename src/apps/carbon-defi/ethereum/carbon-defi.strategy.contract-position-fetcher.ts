@@ -7,7 +7,7 @@ import { ETH_ADDR_ALIAS, ZERO_ADDRESS } from '~app-toolkit/constants/address';
 import { PositionTemplate } from '~app-toolkit/decorators/position-template.decorator';
 import { drillBalance } from '~app-toolkit/helpers/drill-balance.helper';
 import { ContractPositionBalance, RawContractPositionBalance } from '~position/position-balance.interface';
-import { ContractPosition, MetaType } from '~position/position.interface';
+import { MetaType } from '~position/position.interface';
 import {
   DefaultContractPositionDefinition,
   UnderlyingTokenDefinition,
@@ -35,9 +35,9 @@ interface Strategy {
   orders: readonly [Order, Order];
 }
 
-interface StrategyDefinition extends DefaultContractPositionDefinition {
+type StrategyDefinition = DefaultContractPositionDefinition & {
   strategy: Strategy;
-}
+};
 
 type StrategyProps = {
   strategy: Strategy;
@@ -138,7 +138,7 @@ export class EthereumCarbonDefiStrategyContractPositionFetcher extends CustomCon
       const { owner, orders } = position.dataProps.strategy;
       if (owner.toLowerCase() !== address.toLowerCase()) continue;
       balances.push({
-        key: this.appToolkit.getPositionKey(position as ContractPosition<any>),
+        key: this.appToolkit.getPositionKey(position),
         tokens: [
           {
             key: this.appToolkit.getPositionKey(position.tokens[0]),
