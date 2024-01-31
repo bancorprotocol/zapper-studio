@@ -1,5 +1,4 @@
-import { Inject } from '@nestjs/common';
-import { BigNumberish } from 'ethers';
+import { Inject, NotImplementedException } from '@nestjs/common';
 import { sumBy } from 'lodash';
 
 import { APP_TOOLKIT, IAppToolkit } from '~app-toolkit/app-toolkit.interface';
@@ -155,7 +154,7 @@ export class EthereumCarbonDefiStrategyContractPositionFetcher extends CustomCon
   }
 
   // Unused since CustomContractPositionTemplatePositionFetcher forces Promise output while it can be sync
-  async getTokenBalancesPerPosition(): Promise<BigNumberish[]> {
-    return [];
+  getTokenBalancesPerPosition(): never {
+    throw new NotImplementedException();
   }
 }
