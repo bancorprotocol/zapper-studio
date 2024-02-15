@@ -38,7 +38,7 @@ type StrategyProps = {
 };
 
 function isActiveStrategy([buy, sell]: readonly [Order, Order]) {
-  return !!buy.A || !!buy.B || !!sell.A || !!sell.B;
+  return !!buy.y || !!sell.y;
 }
 
 @PositionTemplate()
